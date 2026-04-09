@@ -1,0 +1,49 @@
+:root {
+  /* Text */
+  --color-text-primary: #1a1a1a;          /* 16:1 on white */
+  --color-text-secondary: #595959;        /* 7:1 on white */
+  --color-text-muted: #767676;            /* 4.5:1 on white */
+  --color-text-inverse: #ffffff;
+
+  /* Interactive */
+  --color-focus: #005fcc;                 /* focus ring */
+  --color-link: #0056b3;                  /* 4.7:1 on white */
+  --color-link-visited: #6b21a8;
+
+  /* Status */
+  --color-error: #b91c1c;                 /* 5.9:1 on white */
+  --color-warning: #92400e;              /* 4.5:1 on white */
+  --color-success: #166534;              /* 7.1:1 on white */
+
+  /* Completeness badges */
+  --color-completeness-none: #6b7280;    /* grey */
+  --color-completeness-minimal: #b45309; /* amber — 4.5:1 on white */
+  --color-completeness-standard: #1d4ed8; /* blue — 5.9:1 on white */
+  --color-completeness-full: #166534;    /* green — 7.1:1 on white */
+
+  /* Surfaces */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f9fafb;
+  --color-bg-tertiary: #f3f4f6;
+  --color-border: #d1d5db;
+}
+
+.dark {
+  --color-text-primary: #f9fafb;
+  --color-text-secondary: #d1d5db;
+  --color-text-muted: #9ca3af;
+  --color-text-inverse: #1a1a1a;
+
+  --color-focus: #66b3ff;
+  --color-link: #93c5fd;
+  --color-link-visited: #c4b5fd;
+
+  --color-error: #fca5a5;
+  --color-warning: #fcd34d;
+  --color-success: #86efac;
+
+  --color-bg-primary: #111827;
+  --color-bg-secondary: #1f2937;
+  --color-bg-tertiary: #374151;
+  --color-border: #4b5563;
+}
