@@ -1,141 +1,129 @@
 /**
- * Event detail with linked documents, people, locations, and timeline.
- * Fetches data using React Query from the events API.
+ * Event detail page. Shows event info, linked documents, people, and locations.
  */
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { eventsApi } from '../../api/events';
 import apiClient from '../../api/client';
+import Spinner from '../../components/ui/Spinner';
 import type { Event } from '../../types/api';
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const eventId = Number(id);
 
-  const eventQuery = useQuery<Event>({
-    queryKey: ['event', eventId],
+  const { data: event, isLoading, isError } = useQuery<Event>({
+    queryKey: ['events', eventId],
     queryFn: () => eventsApi.get(eventId),
-    enabled: !isNaN(eventId),
+    enabled: !Number.isNaN(eventId),
   });
 
   const docsQuery = useQuery({
-    queryKey: ['event-docs', eventId],
+    queryKey: ['events', eventId, 'documents'],
     queryFn: () => apiClient.get(`/events/${eventId}/documents`).then((r) => r.data),
-    enabled: !isNaN(eventId),
+    enabled: !Number.isNaN(eventId),
   });
 
   const authQuery = useQuery({
-    queryKey: ['event-authorities', eventId],
+    queryKey: ['events', eventId, 'authorities'],
     queryFn: () => apiClient.get(`/events/${eventId}/authorities`).then((r) => r.data),
-    enabled: !isNaN(eventId),
+    enabled: !Number.isNaN(eventId),
   });
 
-  const locQuery = useQuery({
-    queryKey: ['event-locations', eventId],
+  const locsQuery = useQuery({
+    queryKey: ['events', eventId, 'locations'],
     queryFn: () => apiClient.get(`/events/${eventId}/locations`).then((r) => r.data),
-    enabled: !isNaN(eventId),
+    enabled: !Number.isNaN(eventId),
   });
 
-  const evt = eventQuery.data;
+  if (isLoading) return <div className="flex items-center justify-center py-16"><Spinner label="Loading event" /></div>;
 
-  if (eventQuery.isLoading) {
+  if (isError || !event) {
     return (
-      <div role="status" aria-label="Loading event" className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-r-transparent" aria-hidden="true" />
-        <span className="ml-3 text-gray-500 dark:text-gray-400">Loading event...</span>
-      </div>
-    );
-  }
-
-  if (eventQuery.isError || !evt) {
-    return (
-      <div role="alert" className="p-6 max-w-3xl mx-auto">
-        <div className="p-4 rounded bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200">Event not found.</div>
+      <div className="p-6 max-w-5xl mx-auto">
+        <div role="alert" className="p-4 rounded bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200">Failed to load event.</div>
+        <Link to="/events" className="mt-4 inline-block text-blue-700 dark:text-blue-400 hover:underline">Back to events</Link>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <nav className="mb-4 text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
-        <Link to="/events" className="hover:text-blue-600 dark:hover:text-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">Events</Link>
-        <span className="mx-2" aria-hidden="true">/</span>
-        <span className="text-gray-900 dark:text-gray-100" aria-current="page">{evt.title}</span>
+    <div className="p-6 max-w-5xl mx-auto">
+      <nav aria-label="Breadcrumb" className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <Link to="/events" className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">Events</Link>
+        <span aria-hidden="true"> / </span>
+        <span aria-current="page">{event.title}</span>
       </nav>
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{evt.title}</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {evt.date_display && <span>{evt.date_display}</span>}
-            {evt.is_public && <span className="ml-3 text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-2 py-0.5 rounded">Public</span>}
-          </p>
-        </div>
-        <Link to={`/events/${evt.id}/edit`} className="min-h-[44px] inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] focus-visible:ring-offset-2">
-          Edit Event
-        </Link>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{event.title}</h1>
+      <div className="mb-6 flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+        {event.date_display && <span>{event.date_display}</span>}
+        {event.is_public && <span className="text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 rounded px-2 py-0.5">Public</span>}
       </div>
 
-      {evt.description && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
-          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{evt.description}</p>
-        </div>
+      {event.description && (
+        <section aria-labelledby="evt-desc" className="mb-6">
+          <h2 id="evt-desc" className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Description</h2>
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{event.description}</div>
+        </section>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          {/* Documents */}
-          <section className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Linked Documents</h2>
-            {docsQuery.isLoading && <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>}
-            {docsQuery.data && Array.isArray(docsQuery.data) && docsQuery.data.length > 0 ? (
-              <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                {(docsQuery.data as Array<{ id: number; document: { id: number; title: string; accession_number?: string }; link_type: string }>).map((link) => (
-                  <li key={link.id} className="py-2 text-sm">
-                    <Link to={`/archive/documents/${link.document.id}`} className="text-blue-700 dark:text-blue-400 hover:underline font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">{link.document.title}</Link>
-                    <span className="text-gray-400 dark:text-gray-500 ml-2 text-xs">({link.link_type})</span>
-                    {link.document.accession_number && <span className="text-gray-400 dark:text-gray-500 ml-2 text-xs">{link.document.accession_number}</span>}
-                  </li>
-                ))}
-              </ul>
-            ) : (!docsQuery.isLoading && <p className="text-sm text-gray-500 dark:text-gray-400">No documents linked to this event.</p>)}
-          </section>
-        </div>
+      <section aria-labelledby="evt-docs" className="mb-6">
+        <h2 id="evt-docs" className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Documents</h2>
+        {docsQuery.isLoading && <Spinner size="sm" label="Loading documents" />}
+        {docsQuery.isError && <p className="text-red-600 dark:text-red-400 text-sm">Failed to load documents.</p>}
+        {docsQuery.data && Array.isArray(docsQuery.data) && docsQuery.data.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-sm">No documents linked.</p>}
+        {docsQuery.data && Array.isArray(docsQuery.data) && docsQuery.data.length > 0 && (
+          <ul className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
+            {(docsQuery.data as Array<{ id: number; document?: { id: number; title: string } }>).map((link) => (
+              <li key={link.id} className="px-4 py-3">
+                <Link to={`/archive/documents/${link.document?.id ?? link.id}`}
+                  className="text-blue-700 dark:text-blue-400 hover:underline font-medium text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">
+                  {link.document?.title ?? `Document #${link.id}`}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-        <div className="space-y-6">
-          {/* People */}
-          <section className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">People</h2>
-            {authQuery.isLoading && <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>}
-            {authQuery.data && Array.isArray(authQuery.data) && authQuery.data.length > 0 ? (
-              <ul className="space-y-1">
-                {(authQuery.data as Array<{ id: number; authority: { id: number; authorized_name: string }; role: { term: string } }>).map((link) => (
-                  <li key={link.id} className="text-sm">
-                    <Link to={`/people/${link.authority.id}`} className="text-blue-700 dark:text-blue-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">{link.authority.authorized_name}</Link>
-                    <span className="text-gray-400 dark:text-gray-500 ml-1 text-xs">({link.role.term})</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (!authQuery.isLoading && <p className="text-sm text-gray-500 dark:text-gray-400">No people linked.</p>)}
-          </section>
+      <section aria-labelledby="evt-people" className="mb-6">
+        <h2 id="evt-people" className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">People &amp; Organizations</h2>
+        {authQuery.isLoading && <Spinner size="sm" label="Loading people" />}
+        {authQuery.isError && <p className="text-red-600 dark:text-red-400 text-sm">Failed to load people.</p>}
+        {authQuery.data && Array.isArray(authQuery.data) && authQuery.data.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-sm">No people linked.</p>}
+        {authQuery.data && Array.isArray(authQuery.data) && authQuery.data.length > 0 && (
+          <ul className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
+            {(authQuery.data as Array<{ id: number; authority?: { id: number; authorized_name: string } }>).map((link) => (
+              <li key={link.id} className="px-4 py-3">
+                <Link to={`/people/${link.authority?.id ?? link.id}`}
+                  className="text-blue-700 dark:text-blue-400 hover:underline font-medium text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">
+                  {link.authority?.authorized_name ?? `Authority #${link.id}`}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-          {/* Locations */}
-          <section className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Locations</h2>
-            {locQuery.isLoading && <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>}
-            {locQuery.data && Array.isArray(locQuery.data) && locQuery.data.length > 0 ? (
-              <ul className="space-y-1">
-                {(locQuery.data as Array<{ id: number; location: { id: number; authorized_name: string }; link_type: string }>).map((link) => (
-                  <li key={link.id} className="text-sm">
-                    <Link to={`/locations/${link.location.id}`} className="text-blue-700 dark:text-blue-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">{link.location.authorized_name}</Link>
-                    <span className="text-gray-400 dark:text-gray-500 ml-1 text-xs">({link.link_type})</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (!locQuery.isLoading && <p className="text-sm text-gray-500 dark:text-gray-400">No locations linked.</p>)}
-          </section>
-        </div>
-      </div>
+      <section aria-labelledby="evt-locs">
+        <h2 id="evt-locs" className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Locations</h2>
+        {locsQuery.isLoading && <Spinner size="sm" label="Loading locations" />}
+        {locsQuery.isError && <p className="text-red-600 dark:text-red-400 text-sm">Failed to load locations.</p>}
+        {locsQuery.data && Array.isArray(locsQuery.data) && locsQuery.data.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-sm">No locations linked.</p>}
+        {locsQuery.data && Array.isArray(locsQuery.data) && locsQuery.data.length > 0 && (
+          <ul className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
+            {(locsQuery.data as Array<{ id: number; location?: { id: number; authorized_name: string } }>).map((link) => (
+              <li key={link.id} className="px-4 py-3">
+                <Link to={`/locations/${link.location?.id ?? link.id}`}
+                  className="text-blue-700 dark:text-blue-400 hover:underline font-medium text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">
+                  {link.location?.authorized_name ?? `Location #${link.id}`}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

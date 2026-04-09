@@ -1,203 +1,137 @@
 /**
- * Authority record detail: biography/history, linked documents, relationships,
- * events, and Wikidata enrichment information.
+ * Authority record detail page. Shows biographical/organizational info,
+ * linked documents, events, and optional Wikidata enrichment.
  */
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { authorityApi } from '../api/authority';
 import apiClient from '../api/client';
-import type { AuthorityRecord } from '../types/api';
+import Spinner from '../components/ui/Spinner';
+import type { AuthorityRecord, Document } from '../types/api';
 
 export default function PersonDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const authorityId = Number(id);
+  const recordId = Number(id);
 
-  const recordQuery = useQuery<AuthorityRecord>({
-    queryKey: ['authority', authorityId],
-    queryFn: () => authorityApi.get(authorityId),
-    enabled: !isNaN(authorityId),
+  const { data: record, isLoading, isError } = useQuery<AuthorityRecord>({
+    queryKey: ['authority', recordId],
+    queryFn: () => authorityApi.get(recordId),
+    enabled: !Number.isNaN(recordId),
   });
 
-  const docsQuery = useQuery({
-    queryKey: ['authority-docs', authorityId],
-    queryFn: () => authorityApi.getDocuments(authorityId),
-    enabled: !isNaN(authorityId),
-  });
-
-  const relQuery = useQuery({
-    queryKey: ['authority-relationships', authorityId],
-    queryFn: () => apiClient.get(`/authority/${authorityId}/relationships`).then((r) => r.data),
-    enabled: !isNaN(authorityId),
+  const documentsQuery = useQuery<Document[]>({
+    queryKey: ['authority', recordId, 'documents'],
+    queryFn: () => authorityApi.getDocuments(recordId),
+    enabled: !Number.isNaN(recordId),
   });
 
   const eventsQuery = useQuery({
-    queryKey: ['authority-events', authorityId],
-    queryFn: () => apiClient.get(`/authority/${authorityId}/events`).then((r) => r.data),
-    enabled: !isNaN(authorityId),
+    queryKey: ['authority', recordId, 'events'],
+    queryFn: () => apiClient.get(`/authority/${recordId}/events`).then((r) => r.data),
+    enabled: !Number.isNaN(recordId),
   });
 
-  const record = recordQuery.data;
+  if (isLoading) return <div className="flex items-center justify-center py-16"><Spinner label="Loading authority record" /></div>;
 
-  if (recordQuery.isLoading) {
+  if (isError || !record) {
     return (
-      <div role="status" aria-label="Loading authority record" className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-r-transparent" aria-hidden="true" />
-        <span className="ml-3 text-gray-500 dark:text-gray-400">Loading authority record...</span>
+      <div className="p-6 max-w-5xl mx-auto">
+        <div role="alert" className="p-4 rounded bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200">Failed to load authority record.</div>
+        <Link to="/people" className="mt-4 inline-block text-blue-700 dark:text-blue-400 hover:underline">Back to records</Link>
       </div>
     );
   }
 
-  if (recordQuery.isError || !record) {
-    return (
-      <div role="alert" className="p-6 max-w-3xl mx-auto">
-        <div className="p-4 rounded bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200">
-          Authority record not found or failed to load.
-        </div>
-      </div>
-    );
-  }
-
-  const wikidata = record.wikidata_enrichment as Record<string, string> | null;
+  const typeLabels: Record<string, string> = { person: 'Person', organization: 'Organization', family: 'Family' };
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <nav className="mb-4" aria-label="Breadcrumb">
-        <Link to="/people" className="text-sm text-blue-600 dark:text-blue-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">
-          &larr; Back to Authority Records
-        </Link>
+    <div className="p-6 max-w-5xl mx-auto">
+      <nav aria-label="Breadcrumb" className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <Link to="/people" className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">People &amp; Organizations</Link>
+        <span aria-hidden="true"> / </span>
+        <span aria-current="page">{record.authorized_name}</span>
       </nav>
 
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{record.authorized_name}</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            <span className="capitalize">{record.entity_type}</span>
-            {record.dates && <span> &middot; {record.dates}</span>}
-            {record.identifier && <span> &middot; {record.identifier}</span>}
-          </p>
-        </div>
-        <Link
-          to={`/people/${record.id}/edit`}
-          className="min-h-[44px] inline-flex items-center px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] focus-visible:ring-offset-2"
-        >
-          Edit
-        </Link>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{record.authorized_name}</h1>
+      <div className="mb-6 flex items-center gap-3">
+        <span className="text-sm text-gray-600 dark:text-gray-400">{typeLabels[record.entity_type] ?? record.entity_type}</span>
+        {record.dates && <span className="text-sm text-gray-500 dark:text-gray-400">{record.dates}</span>}
+        {record.is_public && <span className="text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 rounded px-2 py-0.5">Public</span>}
+        {record.wikidata_qid && <span className="text-xs text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 rounded px-2 py-0.5">Wikidata: {record.wikidata_qid}</span>}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main content */}
-        <section className="lg:col-span-2 space-y-6">
-          {/* Biography */}
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
-              {record.entity_type === 'organization' ? 'Administrative History' : 'Biographical History'}
-            </h2>
-            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-              {(record.entity_type === 'organization' ? record.administrative_history : record.biographical_history) ?? 'No history recorded.'}
-            </p>
-            {record.variant_names && (
-              <div className="mt-3">
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Variant Names</p>
-                <p className="text-sm text-gray-700 dark:text-gray-300">{record.variant_names.replace(/\|/g, ', ')}</p>
-              </div>
-            )}
-            {record.notes && (
-              <div className="mt-3">
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Notes</p>
-                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{record.notes}</p>
-              </div>
-            )}
-          </div>
+      <div className="space-y-6">
+        {record.biographical_history && (
+          <section aria-labelledby="bio-heading">
+            <h2 id="bio-heading" className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Biographical History</h2>
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{record.biographical_history}</div>
+          </section>
+        )}
+        {record.administrative_history && (
+          <section aria-labelledby="admin-hist-heading">
+            <h2 id="admin-hist-heading" className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Administrative History</h2>
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{record.administrative_history}</div>
+          </section>
+        )}
+        {record.variant_names && (
+          <section aria-labelledby="variants-heading">
+            <h2 id="variants-heading" className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Variant Names</h2>
+            <ul className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-1">
+              {record.variant_names.split('|').map((name, i) => <li key={i} className="text-sm text-gray-700 dark:text-gray-300">{name.trim()}</li>)}
+            </ul>
+          </section>
+        )}
 
-          {/* Linked Documents */}
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Linked Documents</h2>
-            {docsQuery.isLoading && <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>}
-            {docsQuery.data && Array.isArray(docsQuery.data) && docsQuery.data.length > 0 ? (
-              <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                {(docsQuery.data as Array<{ id: number; title: string; accession_number?: string; date_display?: string }>).map((doc) => (
-                  <li key={doc.id} className="py-2">
-                    <Link to={`/archive/documents/${doc.id}`} className="text-blue-700 dark:text-blue-400 hover:underline text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">
-                      {doc.title}
-                    </Link>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">
-                      {doc.accession_number}{doc.date_display && ` \u00b7 ${doc.date_display}`}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              !docsQuery.isLoading && <p className="text-sm text-gray-500 dark:text-gray-400">No linked documents.</p>
-            )}
-          </div>
-
-          {/* Events */}
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Events</h2>
-            {eventsQuery.isLoading && <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>}
-            {eventsQuery.data && Array.isArray(eventsQuery.data) && eventsQuery.data.length > 0 ? (
-              <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                {(eventsQuery.data as Array<{ id: number; event: { id: number; title: string; date_display?: string }; role: { term: string } }>).map((link) => (
-                  <li key={link.id} className="py-2">
-                    <Link to={`/events/${link.event.id}`} className="text-blue-700 dark:text-blue-400 hover:underline text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">
-                      {link.event.title}
-                    </Link>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">({link.role.term})</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              !eventsQuery.isLoading && <p className="text-sm text-gray-500 dark:text-gray-400">No linked events.</p>
-            )}
-          </div>
+        <section aria-labelledby="docs-heading">
+          <h2 id="docs-heading" className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Linked Documents</h2>
+          {documentsQuery.isLoading && <Spinner size="sm" label="Loading documents" />}
+          {documentsQuery.isError && <p className="text-red-600 dark:text-red-400 text-sm">Failed to load documents.</p>}
+          {documentsQuery.data && Array.isArray(documentsQuery.data) && documentsQuery.data.length === 0 && (
+            <p className="text-gray-500 dark:text-gray-400 text-sm">No documents linked to this record.</p>
+          )}
+          {documentsQuery.data && Array.isArray(documentsQuery.data) && documentsQuery.data.length > 0 && (
+            <ul className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
+              {documentsQuery.data.map((doc: Document) => (
+                <li key={doc.id} className="px-4 py-3">
+                  <Link to={`/archive/documents/${doc.id}`}
+                    className="text-blue-700 dark:text-blue-400 hover:underline font-medium text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">
+                    {doc.title}
+                  </Link>
+                  {doc.date_display && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{doc.date_display}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
-        {/* Sidebar */}
-        <aside className="space-y-6">
-          {/* Relationships */}
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Relationships</h2>
-            {relQuery.isLoading && <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>}
-            {relQuery.data && Array.isArray(relQuery.data) && relQuery.data.length > 0 ? (
-              <ul className="space-y-2">
-                {(relQuery.data as Array<{ id: number; target_authority: { id: number; authorized_name: string }; relationship_type: { term: string } }>).map((rel) => (
-                  <li key={rel.id} className="text-sm">
-                    <span className="text-gray-500 dark:text-gray-400 capitalize">{rel.relationship_type.term.replace(/_/g, ' ')}</span>{' '}
-                    <Link to={`/people/${rel.target_authority.id}`} className="text-blue-700 dark:text-blue-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">
-                      {rel.target_authority.authorized_name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              !relQuery.isLoading && <p className="text-sm text-gray-500 dark:text-gray-400">No relationships.</p>
-            )}
-          </div>
+        <section aria-labelledby="events-heading">
+          <h2 id="events-heading" className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Linked Events</h2>
+          {eventsQuery.isLoading && <Spinner size="sm" label="Loading events" />}
+          {eventsQuery.isError && <p className="text-red-600 dark:text-red-400 text-sm">Failed to load events.</p>}
+          {eventsQuery.data && Array.isArray(eventsQuery.data) && eventsQuery.data.length === 0 && (
+            <p className="text-gray-500 dark:text-gray-400 text-sm">No events linked to this record.</p>
+          )}
+          {eventsQuery.data && Array.isArray(eventsQuery.data) && eventsQuery.data.length > 0 && (
+            <ul className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg divide-y divide-gray-100 dark:divide-gray-700">
+              {(eventsQuery.data as Array<{ id: number; title: string; date_display?: string }>).map((evt) => (
+                <li key={evt.id} className="px-4 py-3">
+                  <Link to={`/events/${evt.id}`}
+                    className="text-blue-700 dark:text-blue-400 hover:underline font-medium text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded">
+                    {evt.title}
+                  </Link>
+                  {evt.date_display && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{evt.date_display}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
-          {/* Wikidata */}
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">Wikidata</h2>
-            {record.wikidata_qid ? (
-              <div className="space-y-2 text-sm">
-                <p>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">QID:</span>{' '}
-                  <a
-                    href={`https://www.wikidata.org/wiki/${record.wikidata_qid}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-700 dark:text-blue-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus,#005fcc)] rounded"
-                  >
-                    {record.wikidata_qid}
-                  </a>
-                </p>
-                {wikidata?.description && <p className="text-gray-600 dark:text-gray-400">{wikidata.description}</p>}
-                {wikidata?.occupation && <p><span className="font-medium text-gray-700 dark:text-gray-300">Occupation:</span> {wikidata.occupation}</p>}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400">Not linked to Wikidata.</p>
-            )}
-          </div>
-        </aside>
+        {record.notes && (
+          <section aria-labelledby="notes-heading">
+            <h2 id="notes-heading" className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Notes</h2>
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{record.notes}</div>
+          </section>
+        )}
       </div>
     </div>
   );
