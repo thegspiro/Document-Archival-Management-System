@@ -1,12 +1,14 @@
 /**
  * Public document view. Shows document metadata, file viewer, citation widget,
- * and schema.org structured data.
+ * and schema.org structured data derived from the Dublin Core crosswalk.
  */
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '../../api/client';
 import Spinner from '../../components/ui/Spinner';
+import { generateDocumentLD } from '../../utils/structuredData';
+import { useInstitution } from '../../context/InstitutionContext';
 import type { Document } from '../../types/api';
 
 const CITATION_FORMATS = [
@@ -21,6 +23,7 @@ export default function PublicDocumentPage() {
   const { id } = useParams<{ id: string }>();
   const documentId = Number(id);
   const [citationFormat, setCitationFormat] = useState('chicago_note');
+  const institution = useInstitution();
 
   const { data: doc, isLoading, isError } = useQuery<Document>({
     queryKey: ['public', 'documents', documentId],
@@ -127,17 +130,10 @@ export default function PublicDocumentPage() {
         </div>
       </section>
 
-      {/* Schema.org structured data */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'ArchiveComponent',
-        name: doc.title,
-        ...(doc.creator ? { creator: { '@type': 'Person', name: doc.creator.authorized_name } } : {}),
-        ...(doc.date_start ? { dateCreated: doc.date_start } : {}),
-        ...(doc.scope_and_content ? { description: doc.scope_and_content } : {}),
-        identifier: doc.accession_number,
-        ...(doc.language_of_material ? { inLanguage: doc.language_of_material } : {}),
-      }) }} />
+      {/* Schema.org structured data — derived from Dublin Core crosswalk (CLAUDE.md section 22) */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+        generateDocumentLD(doc, institution.name)
+      ) }} />
     </div>
   );
 }

@@ -23,6 +23,7 @@ celery_app.conf.update(
     task_routes={
         "app.workers.ocr.*": {"queue": "ocr"},
         "app.workers.llm.*": {"queue": "llm"},
+        "app.workers.ner.*": {"queue": "llm"},
         "app.workers.ingest.*": {"queue": "ingest"},
         "app.workers.fixity.*": {"queue": "fixity"},
         "app.workers.export.*": {"queue": "export"},
@@ -51,4 +52,5 @@ celery_app.autodiscover_tasks([
     "app.workers.export",
     "app.workers.description",
     "app.workers.thumbnails",
+    "app.workers.ner",
 ])

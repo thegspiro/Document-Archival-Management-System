@@ -1,11 +1,14 @@
 /**
  * Public exhibition page with rendered content blocks.
  * Supports exhibition summary and individual page views.
+ * Embeds Schema.org ExhibitionEvent JSON-LD structured data.
  */
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '../../api/client';
 import Spinner from '../../components/ui/Spinner';
+import { generateExhibitionLD } from '../../utils/structuredData';
+import { useInstitution } from '../../context/InstitutionContext';
 import type { Exhibition, ExhibitionPage, ExhibitionPageBlock } from '../../types/api';
 
 function RenderBlock({ block }: { block: ExhibitionPageBlock }) {
@@ -51,6 +54,7 @@ function RenderBlock({ block }: { block: ExhibitionPageBlock }) {
 
 export default function PublicExhibitPage() {
   const { slug, pageSlug } = useParams<{ slug: string; pageSlug?: string }>();
+  const institution = useInstitution();
 
   const exhibitQuery = useQuery<Exhibition>({
     queryKey: ['public', 'exhibitions', slug],
@@ -106,6 +110,11 @@ export default function PublicExhibitPage() {
             </ul>
           </nav>
         )}
+
+        {/* Schema.org ExhibitionEvent structured data */}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+          generateExhibitionLD(exhibition, institution.name)
+        ) }} />
       </div>
     );
   }

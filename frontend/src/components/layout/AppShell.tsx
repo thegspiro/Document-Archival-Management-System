@@ -4,6 +4,7 @@ import SkipNav from '../ui/SkipNav';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import ToastContainer from '../ui/Toast';
+import SessionTimeout from '../ui/SessionTimeout';
 import { useUIStore } from '../../stores/ui';
 
 export default function AppShell() {
@@ -27,6 +28,7 @@ export default function AppShell() {
         </main>
       </div>
       <ToastContainer />
+      <SessionTimeout />
     </div>
   );
 }

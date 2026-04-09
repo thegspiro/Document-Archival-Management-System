@@ -1,8 +1,12 @@
 /**
  * Login page with email/password authentication form.
- * Validates input with zod, submits via auth API, and redirects to dashboard on success.
+ * Validates input with Zod via react-hook-form. Submits via auth API
+ * and redirects to dashboard on success.
+ *
+ * WCAG 3.3.8 (Accessible Authentication): No cognitive function tests.
+ * Password paste is never blocked.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -10,8 +14,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import apiClient from '../api/client';
 
 const loginSchema = z.object({
-  email: z.string().min(1, 'Email is required').email('Enter a valid email address'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().min(1, 'Email is required.').email('Enter a valid email address.'),
+  password: z.string().min(1, 'Password is required.'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -20,6 +24,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const errorSummaryRef = useRef<HTMLDivElement>(null);
 
   const {
     register,
@@ -40,10 +45,23 @@ export default function LoginPage() {
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
         'Login failed. Please check your credentials and try again.';
       setServerError(message);
+      errorSummaryRef.current?.focus();
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const onInvalid = () => {
+    errorSummaryRef.current?.focus();
+  };
+
+  /** Collect field-level errors for the error summary. */
+  const fieldErrors = Object.entries(errors).map(([key, err]) => ({
+    field: key,
+    message: err?.message ?? 'Invalid value.',
+  }));
+
+  const hasErrors = serverError || fieldErrors.length > 0;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
@@ -55,22 +73,39 @@ export default function LoginPage() {
           Sign in to ADMS
         </h1>
 
-        {serverError && (
+        {/* Error summary — focused on validation failure or server error */}
+        {hasErrors && (
           <div
+            ref={errorSummaryRef}
             role="alert"
-            className="mb-4 p-3 rounded bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 text-sm"
+            tabIndex={-1}
+            className="mb-4 p-3 rounded bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-focus,#005fcc)]"
           >
-            {serverError}
+            {serverError && <p className="font-medium">{serverError}</p>}
+            {fieldErrors.length > 0 && !serverError && (
+              <>
+                <p className="font-medium mb-1">Please correct the following errors:</p>
+                <ul className="list-disc pl-5 space-y-0.5">
+                  {fieldErrors.map(({ field, message }) => (
+                    <li key={field}>
+                      <a href={`#login-${field}`} className="underline hover:no-underline">
+                        {message}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate>
           <div className="mb-4">
             <label
               htmlFor="login-email"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >
-              Email address <span aria-hidden="true">*</span>
+              Email address <span className="text-red-600" aria-hidden="true">*</span>
               <span className="sr-only">(required)</span>
             </label>
             <input
@@ -95,9 +130,13 @@ export default function LoginPage() {
               htmlFor="login-password"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >
-              Password <span aria-hidden="true">*</span>
+              Password <span className="text-red-600" aria-hidden="true">*</span>
               <span className="sr-only">(required)</span>
             </label>
+            {/*
+              WCAG 3.3.8 / 3.3.9 (Accessible Authentication): No onPaste handler
+              is attached. Paste is explicitly permitted and never blocked.
+            */}
             <input
               id="login-password"
               type="password"
