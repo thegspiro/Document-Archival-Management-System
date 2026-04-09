@@ -1,0 +1,43 @@
+# Local Development Override
+# Copy to docker-compose.override.yml for local development.
+# Never use this in production.
+
+services:
+  backend:
+    volumes:
+      - ./backend/app:/app/app:ro
+      - adms_storage:${STORAGE_ROOT:-/data/storage}
+    environment:
+      LOG_LEVEL: DEBUG
+    ports:
+      - "8000:8000"
+
+  worker:
+    volumes:
+      - ./backend/app:/app/app:ro
+      - adms_storage:${STORAGE_ROOT:-/data/storage}
+    environment:
+      LOG_LEVEL: DEBUG
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./frontend/src:/app/src:ro
+    ports:
+      - "3000:5173"
+    environment:
+      VITE_API_URL: http://localhost:8000
+
+  db:
+    ports:
+      - "3306:3306"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  nocodb:
+    ports:
+      - "8080:8080"
